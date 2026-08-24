@@ -1,0 +1,10 @@
+Chiavi.txt
+.env
+.env.local
+node_modules/
+.next/
+.cache/
+dist/
+*.log
+.DS_Store
+.vercel
