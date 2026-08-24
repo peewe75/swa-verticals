@@ -1,6 +1,0 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rootDirectory": "swa-platform/apps/platform",
-  "installCommand": "pnpm install --frozen-lockfile",
-  "framework": "nextjs"
-}
