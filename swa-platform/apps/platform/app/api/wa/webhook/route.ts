@@ -19,6 +19,10 @@ function dentalConfig(tenant: TenantRow): DentalConfig {
   };
 }
 
+function waConfigured(): boolean {
+  return !!(process.env.WA_PHONE_NUMBER_ID && process.env.WA_ACCESS_TOKEN);
+}
+
 export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
   const mode = params.get("hub.mode");
@@ -45,6 +49,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "tenant non trovato" }, { status: 500 });
   }
   const db = adminClient();
+  const whatsappReady = waConfigured();
 
   for (const msg of incoming) {
     const { data: conversation } = await db
@@ -103,10 +108,14 @@ export async function POST(req: Request) {
       .update({ updated_at: new Date().toISOString() })
       .eq("id", conversationId);
 
-    await sendText(msg.from, turn.reply).catch((err) => {
-      console.error("invio WhatsApp fallito:", err);
-    });
+    if (whatsappReady) {
+      await sendText(msg.from, turn.reply).catch((err) => {
+        console.error("invio WhatsApp fallito:", err);
+      });
+    } else {
+      console.log(`[DEMO] WhatsApp reply to ${msg.from}: ${turn.reply}`);
+    }
   }
 
-  return NextResponse.json({ ok: true, processed: incoming.length });
+  return NextResponse.json({ ok: true, processed: incoming.length, whatsappReady });
 }
