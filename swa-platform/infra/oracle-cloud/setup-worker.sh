@@ -3,11 +3,18 @@ set -euo pipefail
 # Setup worker su VPS Ubuntu 22.04 - eseguire via SSH: ssh -i ~/.ssh/swa_worker_key ubuntu@<IP> 'bash -s' < setup-worker.sh
 # Richiede .env già configurato in swa-platform/.env (copiato da locale)
 
-if [ ! -f "swa-platform/.env" ]; then
-  echo "ERRORE: swa-platform/.env non trovato. Copialo prima: scp -i ~/.ssh/swa_worker_key -r swa-platform ubuntu@<IP>:~/"
+# Trova repo root (supporta sia ~/swa-platform che ~/swa-verticals/swa-platform)
+if [ -f "swa-platform/.env" ]; then
+  REPO_ROOT="."
+elif [ -f "swa-verticals/swa-platform/.env" ]; then
+  REPO_ROOT="swa-verticals"
+else
+  echo "ERRORE: .env non trovato in swa-platform/.env né swa-verticals/swa-platform/.env"
+  echo "Esegui: cat > ~/swa-verticals/swa-platform/.env <<'EOS' ... oppure copia il file .env sul VPS"
   exit 1
 fi
 
+echo ">> Repo root: $REPO_ROOT (env in $REPO_ROOT/swa-platform/.env)"
 echo ">> Aggiorno sistema e installo Docker..."
 sudo apt-get update -qq
 sudo apt-get install -y -qq docker.io docker-compose-plugin git ffmpeg fonts-dejavu-core
@@ -22,8 +29,7 @@ sudo apt-get install -y -qq nodejs
 sudo npm install -g pnpm@9 >/dev/null
 
 echo ">> Build e avvio renderer..."
-cd swa-platform/infra/vps-renderer
-# usa il .env di swa-platform (symlink)
+cd "$REPO_ROOT/swa-platform/infra/vps-renderer"
 ln -sf ../../.env .env
 docker compose up -d --build
 sleep 5
