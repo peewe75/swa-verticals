@@ -1,6 +1,7 @@
 import { createJob } from "../packages/db/src/index.js";
 
-const PEXELS_KEY = process.env.PEXELS_API_KEY || "YkBdBGVF3hPm5IlYk4AJOotJDC4jvNXLWFawnF5ALKe7i18clo0Q1HJn";
+const PEXELS_KEY = process.env.PEXELS_API_KEY;
+if (!PEXELS_KEY) throw new Error("PEXELS_API_KEY non impostata");
 
 async function pexels(query, perPage = 4) {
   const res = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${perPage}&orientation=portrait`, {

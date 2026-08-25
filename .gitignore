@@ -12,5 +12,6 @@ dist/
 .playwright-mcp/
 cloudshell-check.png
 test-wa*.js
+test-wa*.mjs
 test-video-job.ts
 test-wa-https.js
