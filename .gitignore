@@ -8,3 +8,9 @@ dist/
 *.log
 .DS_Store
 .vercel
+
+.playwright-mcp/
+cloudshell-check.png
+test-wa*.js
+test-video-job.ts
+test-wa-https.js
