@@ -17,7 +17,18 @@ fi
 echo ">> Repo root: $REPO_ROOT (env in $REPO_ROOT/swa-platform/.env)"
 echo ">> Aggiorno sistema e installo Docker..."
 sudo apt-get update -qq
-sudo apt-get install -y -qq docker.io git ffmpeg fonts-dejavu-core docker-compose-plugin 2>/dev/null || sudo apt-get install -y -qq docker.io docker-compose git ffmpeg fonts-dejavu-core
+# Rimuovi vecchio docker-compose (1.29) incompatibile con Docker Engine 24+
+sudo apt-get remove -y docker-compose 2>/dev/null || true
+# Aggiungi repo Docker ufficiale se compose plugin non disponibile (Ubuntu repo non lo ha)
+if ! apt-cache policy docker-compose-plugin 2>/dev/null | grep -q "Candidate:.*[0-9]"; then
+  sudo apt-get install -y -qq ca-certificates curl gnupg
+  sudo install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  sudo chmod a+r /etc/apt/keyrings/docker.gpg
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  sudo apt-get update -qq
+fi
+sudo apt-get install -y -qq docker.io docker-compose-plugin git ffmpeg fonts-dejavu-core
 sudo usermod -aG docker $USER || true
 
 echo ">> Abilito Docker..."
