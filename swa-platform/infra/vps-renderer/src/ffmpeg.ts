@@ -127,13 +127,42 @@ export async function buildKenBurnsVideo(opts: KenBurnsOptions): Promise<string>
   let videoOut = lastLabel;
   if (overlays.length) {
     videoOut = "vover";
-    const chain = overlays
+    // Wrap testi lunghi su 2 righe e auto-riduci font per evitare debordamento su 1080px
+    type FlatOverlay = { text: string; from: number; to: number; size: number; yRatio: number };
+    const flat: FlatOverlay[] = [];
+    for (const ov of overlays) {
+      const rawSize = ov.size ?? 56;
+      const baseY = ov.yRatio ?? 0.78;
+      // Stima larghezza: char ~0.58*fontsize; max 92% di 1080
+      const estCharsPerLine = Math.floor((1080 * 0.92) / (rawSize * 0.58));
+      const maxChars = Math.max(18, Math.min(26, estCharsPerLine));
+      let lines: string[] = [ov.text];
+      if (ov.text.length > maxChars + 2) {
+        const mid = Math.floor(ov.text.length / 2);
+        let split = ov.text.lastIndexOf(" ", mid);
+        if (split < maxChars * 0.5) split = ov.text.indexOf(" ", mid);
+        if (split > 0 && split < ov.text.length - 1) {
+          lines = [ov.text.slice(0, split).trim(), ov.text.slice(split + 1).trim()];
+        }
+      }
+      // Se ancora troppo lungo, riduci font
+      const longest = Math.max(...lines.map((l) => l.length));
+      const fittedSize = Math.min(rawSize, Math.floor((1080 * 0.88) / (longest * 0.58)));
+      const size = Math.max(36, fittedSize);
+      if (lines.length === 1) {
+        flat.push({ text: lines[0], from: ov.from, to: ov.to, size, yRatio: baseY });
+      } else {
+        const lineH = 0.045; // ~86px su 1920
+        flat.push({ text: lines[0], from: ov.from, to: ov.to, size, yRatio: baseY - lineH });
+        flat.push({ text: lines[1], from: ov.from, to: ov.to, size, yRatio: baseY + lineH });
+      }
+    }
+    const chain = flat
       .map((ov) => {
-        const size = ov.size ?? 64;
-        const y = `h*${(ov.yRatio ?? 0.78).toFixed(2)}`;
+        const y = `h*${ov.yRatio.toFixed(3)}`;
         return (
           `drawtext=fontfile='${fontFile()}':text='${escapeDrawtext(ov.text)}':` +
-          `fontsize=${size}:fontcolor=white:borderw=4:bordercolor=black@0.85:box=1:boxcolor=black@0.45:boxborderw=24:` +
+          `fontsize=${ov.size}:fontcolor=white:borderw=3:bordercolor=black@0.85:box=1:boxcolor=black@0.45:boxborderw=18:` +
           `x=(w-text_w)/2:y=${y}:enable='between(t,${ov.from},${ov.to})'`
         );
       })
