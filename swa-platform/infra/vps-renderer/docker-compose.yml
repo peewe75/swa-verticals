@@ -1,7 +1,9 @@
 services:
   renderer:
-    build: .
-    env_file: .env
+    build:
+      context: ../..
+      dockerfile: infra/vps-renderer/Dockerfile
+    env_file: ../../.env
     environment:
       - NODE_ENV=production
     ports:

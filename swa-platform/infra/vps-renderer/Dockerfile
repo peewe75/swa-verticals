@@ -6,12 +6,17 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY package.json ./
-RUN corepack enable
+# Copia workspace root
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY packages ./packages
+COPY infra/vps-renderer/package.json ./infra/vps-renderer/package.json
 
-COPY . .
+RUN corepack enable && pnpm install --frozen-lockfile
 
-RUN pnpm install --frozen-lockfile || pnpm install
+# Copia sorgenti renderer (dopo install per cache)
+COPY infra/vps-renderer ./infra/vps-renderer
+
+WORKDIR /app/infra/vps-renderer
 
 ENV NODE_ENV=production
 EXPOSE 8080
