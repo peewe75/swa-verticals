@@ -1,9 +1,10 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { adminClient, type JobRow } from "@swa/db";
-import { buildKenBurnsVideo, type Overlay } from "./ffmpeg.js";
+import { buildKenBurnsVideo, download, labelImage, type Overlay } from "./ffmpeg.js";
 import { synthesize } from "@swa/lib-tts";
+import { enhanceRealEstate, virtualStaging } from "@swa/lib-gemini";
 
 export type JobHandler = (job: JobRow) => Promise<{ resultUrl: string | null; costEur?: number }>;
 
@@ -23,17 +24,26 @@ interface KenBurnsPayload {
   musicUrl?: string;
 }
 
-async function uploadRender(jobId: string, filePath: string): Promise<string> {
+async function uploadToStorage(key: string, filePath: string, contentType: string): Promise<string> {
   const buffer = await readFile(filePath);
   const db = adminClient();
-  const key = `${jobId}.mp4`;
   const { error } = await db.storage.from("renders").upload(key, buffer, {
-    contentType: "video/mp4",
+    contentType,
     upsert: true,
   });
   if (error) throw new Error(`Upload storage fallito: ${error.message}`);
   const { data } = db.storage.from("renders").getPublicUrl(key);
   return data.publicUrl;
+}
+
+async function uploadRender(jobId: string, filePath: string): Promise<string> {
+  return uploadToStorage(`${jobId}.mp4`, filePath, "video/mp4");
+}
+
+function extFromMime(mime: string): string {
+  if (mime.includes("png")) return "png";
+  if (mime.includes("webp")) return "webp";
+  return "jpg";
 }
 
 async function handleKenBurns(job: JobRow): Promise<{ resultUrl: string; costEur: number }> {
@@ -72,9 +82,65 @@ async function handleKenBurns(job: JobRow): Promise<{ resultUrl: string; costEur
   }
 }
 
+interface EnhancePayload {
+  imageUrl?: string;
+}
+
+async function handleEnhance(job: JobRow): Promise<{ resultUrl: string; costEur: number }> {
+  const payload = (job.payload ?? {}) as EnhancePayload;
+  if (!payload.imageUrl) throw new Error("payload.imageUrl mancante");
+  const dir = await mkdtemp(path.join(tmpdir(), `job-${job.id.slice(0, 8)}-`));
+  try {
+    const srcPath = path.join(dir, "src.jpg");
+    await download(payload.imageUrl, srcPath);
+    const imageBase64 = (await readFile(srcPath)).toString("base64");
+    const { buffer, mime } = await enhanceRealEstate(imageBase64);
+    const ext = extFromMime(mime);
+    const outPath = path.join(dir, `out.${ext}`);
+    await writeFile(outPath, buffer);
+    const resultUrl = await uploadToStorage(`${job.id}.${ext}`, outPath, mime);
+    return { resultUrl, costEur: 0 };
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+interface StagingPayload {
+  imageUrl?: string;
+  roomType?: string;
+  style?: string;
+}
+
+const AI_ACT_LABEL = "Immagine arredata virtualmente con AI — a scopo illustrativo";
+
+async function handleStaging(job: JobRow): Promise<{ resultUrl: string; costEur: number }> {
+  const payload = (job.payload ?? {}) as StagingPayload;
+  if (!payload.imageUrl) throw new Error("payload.imageUrl mancante");
+  const roomType = payload.roomType ?? "stanza";
+  const style = payload.style ?? "modern-minimal";
+  const dir = await mkdtemp(path.join(tmpdir(), `job-${job.id.slice(0, 8)}-`));
+  try {
+    const srcPath = path.join(dir, "src.jpg");
+    await download(payload.imageUrl, srcPath);
+    const imageBase64 = (await readFile(srcPath)).toString("base64");
+    const { buffer, mime } = await virtualStaging(imageBase64, roomType, style);
+    const ext = extFromMime(mime);
+    const rawPath = path.join(dir, `raw.${ext}`);
+    await writeFile(rawPath, buffer);
+    const labeledPath = path.join(dir, `out.${ext}`);
+    await labelImage(rawPath, labeledPath, AI_ACT_LABEL);
+    const resultUrl = await uploadToStorage(`${job.id}.${ext}`, labeledPath, mime);
+    return { resultUrl, costEur: 0 };
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 const handlers: Record<string, JobHandler> = {
   demo_echo: handleEcho,
   video_kenburns: handleKenBurns,
+  enhance: handleEnhance,
+  staging: handleStaging,
 };
 
 export function getHandler(type: string): JobHandler | null {

@@ -1,14 +1,13 @@
 export function imageModel(): string {
-  return process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+  return process.env.GEMINI_IMAGE_MODEL || "google/gemini-2.5-flash-image";
 }
 
-interface GeminiPart {
-  inline_data?: { mime_type?: string; data?: string };
-  text?: string;
+interface OpenRouterImage {
+  image_url?: { url?: string };
 }
 
-interface GeminiResponse {
-  candidates?: { content?: { parts?: GeminiPart[] } }[];
+interface OpenRouterResponse {
+  choices?: { message?: { images?: OpenRouterImage[] } }[];
   error?: { message?: string };
 }
 
@@ -19,39 +18,48 @@ export interface EditImageOptions {
   model?: string;
 }
 
-export async function editImage(opts: EditImageOptions): Promise<Buffer> {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY non impostata");
+export interface EditImageResult {
+  buffer: Buffer;
+  mime: string;
+}
+
+const DATA_URL_RE = /^data:([^;]+);base64,(.+)$/s;
+
+export async function editImage(opts: EditImageOptions): Promise<EditImageResult> {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) throw new Error("OPENROUTER_API_KEY non impostata");
   const model = opts.model ?? imageModel();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-  const res = await fetch(url, {
+  const dataUrl = `data:${opts.imageMime ?? "image/jpeg"};base64,${opts.imageBase64}`;
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
     body: JSON.stringify({
-      contents: [
+      model,
+      modalities: ["image", "text"],
+      messages: [
         {
           role: "user",
-          parts: [
-            { text: opts.prompt },
-            { inline_data: { mime_type: opts.imageMime ?? "image/jpeg", data: opts.imageBase64 } },
+          content: [
+            { type: "text", text: opts.prompt },
+            { type: "image_url", image_url: { url: dataUrl } },
           ],
         },
       ],
     }),
   });
-  const body = (await res.json()) as GeminiResponse;
+  const body = (await res.json()) as OpenRouterResponse;
   if (!res.ok || body.error) {
-    throw new Error(`Gemini HTTP ${res.status}: ${body.error?.message ?? res.statusText}`);
+    throw new Error(`OpenRouter HTTP ${res.status}: ${body.error?.message ?? res.statusText}`);
   }
-  const parts = body.candidates?.[0]?.content?.parts ?? [];
-  const imagePart = parts.find((p) => p.inline_data?.data);
-  if (!imagePart?.inline_data?.data) {
-    throw new Error("Gemini non ha restituito immagini");
+  const imageUrl = body.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  const match = imageUrl ? DATA_URL_RE.exec(imageUrl) : null;
+  if (!match) {
+    throw new Error("OpenRouter non ha restituito immagini");
   }
-  return Buffer.from(imagePart.inline_data.data, "base64");
+  return { buffer: Buffer.from(match[2], "base64"), mime: match[1] };
 }
 
-export async function enhanceRealEstate(imageBase64: string): Promise<Buffer> {
+export async function enhanceRealEstate(imageBase64: string): Promise<EditImageResult> {
   return editImage({
     imageBase64,
     prompt: [
@@ -64,7 +72,7 @@ export async function enhanceRealEstate(imageBase64: string): Promise<Buffer> {
   });
 }
 
-export async function virtualStaging(imageBase64: string, roomType: string, style: string): Promise<Buffer> {
+export async function virtualStaging(imageBase64: string, roomType: string, style: string): Promise<EditImageResult> {
   return editImage({
     imageBase64,
     prompt: [

@@ -72,6 +72,9 @@ importers:
       '@swa/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@swa/lib-gemini':
+        specifier: workspace:*
+        version: link:../../packages/lib-gemini
       '@swa/lib-tts':
         specifier: workspace:*
         version: link:../../packages/lib-tts

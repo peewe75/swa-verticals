@@ -214,6 +214,14 @@ export async function buildKenBurnsVideo(opts: KenBurnsOptions): Promise<string>
   return opts.outPath;
 }
 
+export async function labelImage(inputPath: string, outPath: string, text: string): Promise<void> {
+  const drawtext =
+    `drawtext=fontfile='${fontFile()}':text='${escapeDrawtext(text)}':` +
+    `fontsize=28:fontcolor=white:borderw=2:bordercolor=black@0.85:box=1:boxcolor=black@0.55:boxborderw=14:` +
+    `x=(w-text_w)/2:y=h-th-24`;
+  await runFfmpeg(["-y", "-i", inputPath, "-vf", drawtext, "-frames:v", "1", outPath]);
+}
+
 export async function ffmpegAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
     const proc = spawn("ffmpeg", ["-version"]);

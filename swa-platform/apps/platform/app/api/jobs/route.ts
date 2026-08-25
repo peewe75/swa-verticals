@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const createSchema = z.object({
   tenantSlug: z.string().optional(),
-  type: z.enum(["demo_echo", "video_kenburns"]),
+  type: z.enum(["demo_echo", "video_kenburns", "enhance", "staging"]),
   payload: z.record(z.unknown()).optional(),
 });
 

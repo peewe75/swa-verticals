@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@swa/db": "workspace:*",
+    "@swa/lib-gemini": "workspace:*",
     "@swa/lib-tts": "workspace:*"
   },
   "devDependencies": {

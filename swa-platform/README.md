@@ -59,6 +59,8 @@ ssh user@vps "cd ~/renderer && docker compose up -d --build"
 |---|---|---|
 | `demo_echo` | `{message}` | conferma catena DB→worker |
 | `video_kenburns` | `{images: url[], overlays?, voiceUrl?, musicUrl?}` | mp4 9:16 in Supabase Storage `renders/` |
+| `enhance` | `{imageUrl}` | foto migliorata (Gemini) in Supabase Storage `renders/` |
+| `staging` | `{imageUrl, roomType?, style?}` | foto con virtual staging + label AI Act in Supabase Storage `renders/` |
 
 ## Note
 
